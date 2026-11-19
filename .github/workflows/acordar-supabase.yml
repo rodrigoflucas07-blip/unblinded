@@ -1,0 +1,39 @@
+# Keeps the free Supabase project awake: it pauses after 7 days without activity, which would stop
+# the Community and the accounts in the app. Every day it makes one small read request.
+# GitHub turns off scheduled workflows after 60 days with no commits, so on the 1st of each month
+# it also commits a one-line file with the date.
+name: Acordar o Supabase
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pedido ao Supabase
+        env:
+          # Public "publishable" key: it is already inside the app, safe to have here.
+          SUPABASE_URL: https://uiexpdgeixlwfjbbozzq.supabase.co
+          SUPABASE_KEY: sb_publishable_s_zC6-nelv8oJ2ai4xayjw_DkgyuLGC
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$SUPABASE_URL/rest/v1/rpc/list_public_groups" -H "apikey: $SUPABASE_KEY" -H "Content-Type: application/json" -d '{}')
+          echo "Supabase respondeu $code"
+          test "$code" = "200"
+
+      - uses: actions/checkout@v4
+      - name: Manter o agendamento ativo (commit no dia 1 de cada mês)
+        run: |
+          if [ "$(date -u +%d)" = "01" ]; then
+            date -u +%Y-%m-%d > .acordado
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .acordado
+            git commit -m "Manter o agendamento ativo" || true
+            git push
+          fi
